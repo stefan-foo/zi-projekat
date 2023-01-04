@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.1.32421.90
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cryptography.ServiceHost", "Cryptography.ServiceHost\Cryptography.ServiceHost.csproj", "{09CB6A4F-C384-4968-A531-F0FF6461E553}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cryptography.Client", "Cryptography.Client\Cryptography.Client.csproj", "{EF57CB4D-4BF0-4B87-818B-D9A7CC4C204E}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{09CB6A4F-C384-4968-A531-F0FF6461E553}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{09CB6A4F-C384-4968-A531-F0FF6461E553}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{09CB6A4F-C384-4968-A531-F0FF6461E553}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{09CB6A4F-C384-4968-A531-F0FF6461E553}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EF57CB4D-4BF0-4B87-818B-D9A7CC4C204E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EF57CB4D-4BF0-4B87-818B-D9A7CC4C204E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EF57CB4D-4BF0-4B87-818B-D9A7CC4C204E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EF57CB4D-4BF0-4B87-818B-D9A7CC4C204E}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {7730ECB8-4395-4C46-BCC9-F8B0B71C32B4}
+	EndGlobalSection
+EndGlobal

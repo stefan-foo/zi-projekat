@@ -1,0 +1,115 @@
+syntax = "proto3";
+
+option csharp_namespace = "Cryptography.ServiceHost";
+
+package cryptography;
+
+service Cryptography {
+  rpc SHA1Hash (stream SHA1HashRequest) returns (SHA1HashReply);
+  rpc SHA1Verify (stream SHA1VerifyRequest) returns (SHA1VerifyReply);
+  rpc OTPEncrypt(stream EncryptRequest) returns (stream EncryptReply);
+  rpc OTPDecrypt(stream DecryptRequest) returns (stream DecryptReply);
+  rpc XXTEAEncrypt(stream EncryptRequest) returns (stream EncryptReply);
+  rpc XXTEADecrypt(stream DecryptRequest) returns (stream DecryptReply);
+  rpc FSCEncrypt(stream FSCEncryptRequest) returns (stream FSCEncryptReply);
+  rpc FSCDecrypt(stream FSCDecryptRequest) returns (stream FSCDecryptReply);
+  rpc OFBEncrypt(stream OFBEncryptRequest) returns (stream OFBEncryptReply);
+  rpc OFBDecrypt(stream OFBDecryptRequest) returns (stream OFBDecryptReply);
+  rpc BMPEncrypt(BMPEncryptRequest) returns (BMPEncryptReply);
+  rpc BMPDecrypt(BMPDecryptRequest) returns (BMPDecryptReply);
+}
+
+message BMPDecryptReply {
+	bytes bitmap = 1;
+}
+
+message BMPDecryptRequest {
+	bytes encrypted_bitmap = 1;
+	bytes key = 2;
+}
+
+message BMPEncryptRequest {
+	bytes bitmap = 1;
+}
+
+message BMPEncryptReply {
+	bytes encrypted_bitmap = 1;
+	bytes key = 2;
+}
+
+message OFBEncryptRequest {
+	bytes data = 1;
+	bytes iV = 2;
+	bytes block_cipher_key = 3;
+}
+
+message OFBEncryptReply {
+	bytes encrypted_data = 1;
+}
+
+message OFBDecryptRequest {
+	bytes encrypted_data = 1;
+	bytes IV = 2;
+	bytes block_cipher_key = 3;
+}
+
+message OFBDecryptReply {
+	bytes data = 1;
+}
+
+message FSCEncryptRequest {
+	string text = 1;
+	string key1 = 2;
+	string key2 = 3;
+}
+
+message FSCEncryptReply {
+	string encrypted_text = 1;
+}
+
+message FSCDecryptRequest {
+	string encrypted_text = 1;
+	string key1 = 2;
+	string key2 = 3;
+}
+
+message FSCDecryptReply {
+	string text = 1;
+}
+
+message SHA1HashRequest {
+	bytes data = 1;
+}
+
+message SHA1HashReply {
+	string value = 1;
+}
+
+message SHA1VerifyRequest {
+	oneof Payload {
+		string hash = 1;
+		bytes data = 2;
+	}
+}
+
+message SHA1VerifyReply {
+	bool is_valid = 1;
+}
+
+message EncryptRequest {
+	bytes data = 1;
+	bytes key = 2;
+}
+
+message DecryptRequest {
+	bytes encrypted_data = 1;
+	bytes key = 2;
+}
+
+message EncryptReply {
+	bytes encrypted_data = 1;
+}
+
+message DecryptReply {
+	bytes data = 1;
+}
