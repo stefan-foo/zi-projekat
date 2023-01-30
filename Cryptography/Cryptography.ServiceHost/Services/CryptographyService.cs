@@ -25,7 +25,6 @@ namespace Cryptography.ServiceHost.Services
                 }
             } while (await requestStream.MoveNext());
         }
-
         public override async Task OFBEncrypt(IAsyncStreamReader<OFBEncryptRequest> requestStream, IServerStreamWriter<OFBEncryptReply> responseStream, ServerCallContext context)
         {
             await requestStream.MoveNext();
@@ -77,7 +76,6 @@ namespace Cryptography.ServiceHost.Services
                 throw new RpcException(new Status(StatusCode.InvalidArgument, e.Message));
             }
         }
-
         public override async Task FSCEncrypt(IAsyncStreamReader<FSCEncryptRequest> requestStream, IServerStreamWriter<FSCEncryptReply> responseStream, ServerCallContext context)
         {
             try
@@ -101,14 +99,13 @@ namespace Cryptography.ServiceHost.Services
                 throw new RpcException(new Status(StatusCode.InvalidArgument, e.Message));
             }
         }
-
         public override async Task OTPDecrypt(IAsyncStreamReader<DecryptRequest> requestStream, IServerStreamWriter<DecryptReply> responseStream, ServerCallContext context)
         {
             while (await requestStream.MoveNext())
             {
                 byte[] data = OneTimePad.Decrypt(
                     requestStream.Current.EncryptedData.ToByteArray(),
-                    requestStream.Current.Key.ToByteArray());
+                    requestStream.Current.Key.ToByteArray(), 4);
 
                 await responseStream.WriteAsync(new DecryptReply
                 {
@@ -116,21 +113,19 @@ namespace Cryptography.ServiceHost.Services
                 });
             }
         }
-
         public override async Task OTPEncrypt(IAsyncStreamReader<EncryptRequest> requestStream, IServerStreamWriter<EncryptReply> responseStream, ServerCallContext context)
         {
             while (await requestStream.MoveNext())
             {
                 byte[] encryptedData = OneTimePad.Encrypt(
                     requestStream.Current.Data.ToByteArray(),
-                    requestStream.Current.Key.ToByteArray());
+                    requestStream.Current.Key.ToByteArray(), 4);
 
                 await responseStream.WriteAsync(new EncryptReply {
                     EncryptedData = Google.Protobuf.ByteString.CopyFrom(encryptedData)
                 });
             }
         }
-
         public override async Task<SHA1HashReply> SHA1Hash(IAsyncStreamReader<SHA1HashRequest> requestStream, ServerCallContext context)
         {
             SHA1 sha = new();
@@ -145,7 +140,6 @@ namespace Cryptography.ServiceHost.Services
                 Value = sha.Result()
             };
         }
-
         public override async Task<SHA1VerifyReply> SHA1Verify(IAsyncStreamReader<SHA1VerifyRequest> requestStream, ServerCallContext context)
         {
             SHA1 sha = new();
@@ -169,7 +163,6 @@ namespace Cryptography.ServiceHost.Services
                 IsValid = sha.Verify(hash)
             };
         }
-
         public override async Task XXTEADecrypt(IAsyncStreamReader<DecryptRequest> requestStream, IServerStreamWriter<DecryptReply> responseStream, ServerCallContext context)
         {
             await requestStream.MoveNext();
@@ -187,12 +180,11 @@ namespace Cryptography.ServiceHost.Services
                 }
             } while (await requestStream.MoveNext());
         }
-
         public override async Task XXTEAEncrypt(IAsyncStreamReader<EncryptRequest> requestStream, IServerStreamWriter<EncryptReply> responseStream, ServerCallContext context)
         {
             await requestStream.MoveNext();
 
-            var xxtea = new XXTEAfbs(requestStream.Current.Key.ToBase64());
+            var xxtea = new XXTEAfbs(requestStream.Current.Key.ToByteArray());
             do
             {
                 foreach (var block in xxtea.Encrypt(requestStream.Current.Data.ToByteArray()))
@@ -212,31 +204,35 @@ namespace Cryptography.ServiceHost.Services
                 });
             }
         }
-
-        public override Task<BMPEncryptReply> BMPEncrypt(BMPEncryptRequest request, ServerCallContext context)
+        public override async Task BMPEncrypt(IAsyncStreamReader<BMPEncryptRequest> requestStream, IServerStreamWriter<BMPEncryptReply> responseStream, ServerCallContext context)
         {
-            BMPEncryption bmpe = new();
-            var (encryptedBmp, key) = bmpe.Encrypt(request.Bitmap.ToByteArray());
+            var bmpEnc = new BMPEncryption();
 
-            return Task.FromResult(new BMPEncryptReply
+            while (await requestStream.MoveNext())
             {
-                EncryptedBitmap = Google.Protobuf.ByteString.CopyFrom(encryptedBmp),
-                Key = Google.Protobuf.ByteString.CopyFrom(key)
-            });
+                var (encryptedBmp, key) = bmpEnc.Encrypt(requestStream.Current.Bmp.ToByteArray());
+                await responseStream.WriteAsync(new BMPEncryptReply
+                {
+                    EncryptedBmp = Google.Protobuf.ByteString.CopyFrom(encryptedBmp),
+                    Key = Google.Protobuf.ByteString.CopyFrom(key)
+                });
+            }
         }
-
-        public override Task<BMPDecryptReply> BMPDecrypt(BMPDecryptRequest request, ServerCallContext context)
+        public override async Task BMPDecrypt(IAsyncStreamReader<BMPDecryptRequest> requestStream, IServerStreamWriter<BMPDecryptReply> responseStream, ServerCallContext context)
         {
-            BMPEncryption bmpe = new();
+            var bmpEnc = new BMPEncryption();
 
-            var bmp = bmpe.Decrypt(
-                request.EncryptedBitmap.ToByteArray(), 
-                request.Key.ToByteArray());
-
-            return Task.FromResult(new BMPDecryptReply
+            while (await requestStream.MoveNext())
             {
-                Bitmap = Google.Protobuf.ByteString.CopyFrom(bmp)
-            });
+                var bmpData = bmpEnc.Decrypt(
+                    requestStream.Current.EncryptedBmp.ToByteArray(),
+                    requestStream.Current.Key.ToByteArray());
+
+                await responseStream.WriteAsync(new BMPDecryptReply
+                {
+                    Bmp = Google.Protobuf.ByteString.CopyFrom(bmpData)
+                });
+            }
         }
     }
 }

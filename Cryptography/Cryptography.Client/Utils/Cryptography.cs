@@ -7,7 +7,7 @@ namespace Cryptography.Client.Utils
 {
     public class CryptographyLib
     {
-        private const int BufferSize = 4096;
+        private const int BufferSize = 5000;
         private readonly CryptographyClient _client;
         public CryptographyLib(CryptographyClient client)
         {
@@ -15,38 +15,84 @@ namespace Cryptography.Client.Utils
         }
         public async Task EncryptBMP(string srcPath, string dstPath, string keyDstPath)
         {
-            try
-            {
-                byte[] bmpBytes = File.ReadAllBytes(srcPath);
+            using FileStream bmpfs = new(srcPath, FileMode.Open);
+            using FileStream encBmpfs = new(dstPath, FileMode.OpenOrCreate);
+            using FileStream keyfs = new(keyDstPath, FileMode.OpenOrCreate);
 
-                var response = await _client.BMPEncryptAsync(new BMPEncryptRequest {
-                    Bitmap = Google.Protobuf.ByteString.CopyFrom(bmpBytes)
-                });
+            var encryptCall = _client.BMPEncrypt();
 
-                File.WriteAllBytes(dstPath, response.EncryptedBitmap.ToByteArray());
-                File.WriteAllBytes(keyDstPath, response.Key.ToByteArray());
-            } catch (Exception ex)
+            var requestTask = Task.Run(async () =>
             {
-                Console.WriteLine(ex.Message);
-            }
+                byte[] buffer = new byte[BufferSize];
+
+                int read;
+                while ((read = bmpfs.Read(buffer, 0, buffer.Length)) > 0)
+                {
+                    await encryptCall.RequestStream.WriteAsync(new BMPEncryptRequest
+                    {
+                        Bmp = Google.Protobuf.ByteString.CopyFrom(buffer, 0, read)
+                    });
+                }
+
+                await encryptCall.RequestStream.CompleteAsync();
+            });
+
+            await Task.Run(async () =>
+            {
+                while (await encryptCall.ResponseStream.MoveNext())
+                {
+                    encBmpfs.Write(encryptCall.ResponseStream.Current.EncryptedBmp.ToByteArray());
+                    keyfs.Write(encryptCall.ResponseStream.Current.Key.ToByteArray());
+                }
+            });
+
+            await requestTask;
+
+            keyfs.Close();
+            bmpfs.Close();
+            encBmpfs.Close();
         }
         public async Task DecryptBMP(string srcPath, string keyPath, string dstPath)
         {
-            try
-            {
-                byte[] encryptedBytes = File.ReadAllBytes(srcPath);
-                byte[] keyBytes = File.ReadAllBytes(keyPath);
+            using FileStream bmpfs = new(srcPath, FileMode.Open);
+            using FileStream keyfs = new(keyPath, FileMode.Open);
+            using FileStream dstfs = new(dstPath, FileMode.OpenOrCreate);
 
-                var response = await _client.BMPDecryptAsync(new BMPDecryptRequest { 
-                    EncryptedBitmap = Google.Protobuf.ByteString.CopyFrom(encryptedBytes),
-                    Key = Google.Protobuf.ByteString.CopyFrom(keyBytes)
-                });
+            var encryptCall = _client.BMPDecrypt();
 
-                File.WriteAllBytes(dstPath, response.Bitmap.ToByteArray());
-            } catch (Exception ex)
+            var requestTask = Task.Run(async () =>
             {
-                Console.WriteLine(ex.Message);
-            }
+                byte[] buffer = new byte[BufferSize];
+                byte[] keyBuffer = new byte[BufferSize];
+
+                int read;
+                while ((read = bmpfs.Read(buffer, 0, buffer.Length)) > 0)
+                {
+                    keyfs.Read(keyBuffer, 0, read);
+
+                    await encryptCall.RequestStream.WriteAsync(new BMPDecryptRequest
+                    {
+                        EncryptedBmp = Google.Protobuf.ByteString.CopyFrom(buffer, 0, read),
+                        Key = Google.Protobuf.ByteString.CopyFrom(keyBuffer, 0, read),
+                    });
+                }
+
+                await encryptCall.RequestStream.CompleteAsync();
+            });
+
+            await Task.Run(async () =>
+            {
+                while (await encryptCall.ResponseStream.MoveNext())
+                {
+                    dstfs.Write(encryptCall.ResponseStream.Current.Bmp.ToByteArray());
+                }
+            });
+
+            await requestTask;
+
+            keyfs.Close();
+            bmpfs.Close();
+            dstfs.Close();
         }
         public async Task OFBDecrypt(string srcPath, string iVPath, string dstPath, string key)
         {
@@ -58,7 +104,7 @@ namespace Cryptography.Client.Utils
                 using FileStream ivs = new(iVPath, FileMode.Open);
 
                 byte[] buffer = new byte[BufferSize];
-                byte[] iV = new byte[BufferSize];
+                byte[] iV = new byte[Math.Max(4096, BufferSize)];
 
                 ivs.Read(iV, 0, BufferSize);
 
@@ -103,7 +149,7 @@ namespace Cryptography.Client.Utils
                   using FileStream ivs = new(iVPath, FileMode.Open);
 
                   byte[] buffer = new byte[BufferSize];
-                  byte[] iV = new byte[BufferSize];
+                  byte[] iV = new byte[Math.Max(4096, BufferSize)];
 
                   ivs.Read(iV, 0, BufferSize);
 
@@ -192,6 +238,8 @@ namespace Cryptography.Client.Utils
 
                     outputWriter.Write(encryptCall.ResponseStream.Current.Text);
                 }
+
+                await encryptCall.RequestStream.CompleteAsync();
             }
         }
         public async Task<string> SHA1HashFile(string path)
@@ -239,77 +287,101 @@ namespace Cryptography.Client.Utils
 
             return (await sha1Call.ResponseAsync).IsValid;
         }
-        public async Task OneTimePadDecrypt(string encryptedFilePath, string keyPath, string destPath)
+        public async Task OTPDecrypt(string encryptedFilePath, string keyPath, string destPath)
         {
-            FileStream fileStream = new(encryptedFilePath, FileMode.Open);
-            FileStream destStream = new(destPath, FileMode.OpenOrCreate);
             FileStream keyStream = new(keyPath, FileMode.Open);
+            FileStream fileStream = new(encryptedFilePath, FileMode.Open);
 
             if (keyStream.Length < fileStream.Length)
             {
                 throw new ArgumentException("Kljuc mora biti vece ili jednake duzine od fajla koji se desifrira");
             }
 
-            byte[] fileBuffer = new byte[4096];
-            byte[] keyBuffer = new byte[4096];
+            FileStream destStream = new(destPath, FileMode.OpenOrCreate);
 
-            var encryptCall = _client.OTPDecrypt();
+            var decryptCall = _client.OTPDecrypt();
 
-            int read;
-            while ((read = fileStream.Read(fileBuffer, 0, fileBuffer.Length)) > 0)
+            var requestTask = Task.Run(async () =>
             {
-                keyStream.Read(keyBuffer, 0, keyBuffer.Length);
+                byte[] fileBuffer = new byte[4096];
+                byte[] keyBuffer = new byte[4096];
 
-                await encryptCall.RequestStream.WriteAsync(new DecryptRequest
+
+                int read;
+                while ((read = fileStream.Read(fileBuffer, 0, fileBuffer.Length)) > 0)
                 {
-                    EncryptedData = Google.Protobuf.ByteString.CopyFrom(fileBuffer, 0, read),
-                    Key = Google.Protobuf.ByteString.CopyFrom(keyBuffer, 0, read)
-                });
+                    keyStream.Read(keyBuffer, 0, keyBuffer.Length);
 
-                await encryptCall.ResponseStream.MoveNext();
+                    await decryptCall.RequestStream.WriteAsync(new DecryptRequest
+                    {
+                        EncryptedData = Google.Protobuf.ByteString.CopyFrom(fileBuffer, 0, read),
+                        Key = Google.Protobuf.ByteString.CopyFrom(keyBuffer, 0, read)
+                    });
+                }
 
-                destStream.Write(encryptCall.ResponseStream.Current.Data.ToByteArray());
-            }
+                await decryptCall.RequestStream.CompleteAsync();
+            });
 
-            await encryptCall.RequestStream.CompleteAsync();
+            await Task.Run(async () =>
+            {
+                while (await decryptCall.ResponseStream.MoveNext())
+                {
+                    destStream.Write(decryptCall.ResponseStream.Current.Data.ToByteArray());
+                }
+            });
+
+            await requestTask;
 
             keyStream.Close();
             fileStream.Close();
             destStream.Close();
         }
-        public async Task OneTimePadEncrypt(string filePath, string keyPath, string destPath)
+        public async Task OTPEncrypt(string filePath, string keyPath, string destPath)
         {
+            //await OneTimePadDecrypt(filePath, keyPath, destPath);
+
             FileStream keyStream = new(keyPath, FileMode.Open);
             FileStream fileStream = new(filePath, FileMode.Open);
-            FileStream destStream = new(destPath, FileMode.OpenOrCreate);
 
             if (keyStream.Length < fileStream.Length)
             {
-                throw new ArgumentException("Kljuc mora biti vece ili jednake duzine od fajla koji se sifrira");
+                throw new ArgumentException("Kljuc mora biti vece ili jednake duzine od fajla koji se desifrira");
             }
 
-            byte[] fileBuffer = new byte[4096];
-            byte[] keyBuffer = new byte[4096];
+            FileStream destStream = new(destPath, FileMode.OpenOrCreate);
 
             var encryptCall = _client.OTPEncrypt();
 
-            int read;
-            while ((read = fileStream.Read(fileBuffer, 0, fileBuffer.Length)) > 0)
+            var requestTask = Task.Run(async () =>
             {
-                keyStream.Read(keyBuffer, 0, read);
+                byte[] fileBuffer = new byte[4096];
+                byte[] keyBuffer = new byte[4096];
 
-                await encryptCall.RequestStream.WriteAsync(new EncryptRequest
+
+                int read;
+                while ((read = fileStream.Read(fileBuffer, 0, fileBuffer.Length)) > 0)
                 {
-                    Data = Google.Protobuf.ByteString.CopyFrom(fileBuffer, 0, read),
-                    Key = Google.Protobuf.ByteString.CopyFrom(keyBuffer, 0, read)
-                });
+                    keyStream.Read(keyBuffer, 0, keyBuffer.Length);
 
-                await encryptCall.ResponseStream.MoveNext();
+                    await encryptCall.RequestStream.WriteAsync(new EncryptRequest
+                    {
+                        Data = Google.Protobuf.ByteString.CopyFrom(fileBuffer, 0, read),
+                        Key = Google.Protobuf.ByteString.CopyFrom(keyBuffer, 0, read)
+                    });
+                }
 
-                destStream.Write(encryptCall.ResponseStream.Current.EncryptedData.ToByteArray());
-            }
+                await encryptCall.RequestStream.CompleteAsync();
+            });
 
-            await encryptCall.RequestStream.CompleteAsync();
+            await Task.Run(async () =>
+            {
+                while (await encryptCall.ResponseStream.MoveNext())
+                {
+                    destStream.Write(encryptCall.ResponseStream.Current.EncryptedData.ToByteArray());
+                }
+            });
+
+            await requestTask;
 
             keyStream.Close();
             fileStream.Close();

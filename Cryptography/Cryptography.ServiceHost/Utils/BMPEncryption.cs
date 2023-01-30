@@ -3,30 +3,58 @@
     public class BMPEncryption
     {
         private static readonly int BMPHeaderSize = 54;
+        private bool headerReceived = false;
         public BMPEncryption() { }
 
-        public (byte[] encBmp, byte[] key) Encrypt(byte[] bmp)
+        public (byte[] encBmp, byte[] key) Encrypt(byte[] bmpData)
         {
-            byte[] encBmp = new byte[bmp.Length];
-            Array.Copy(bmp, 0, encBmp, 0, BMPHeaderSize);
+            if (!headerReceived)
+            {
+                if (bmpData.Length < BMPHeaderSize)
+                {
+                    throw new ArgumentException("Bitmap header mora biti poslat odjedanput");
+                }
 
-            var (encData, key) = OneTimePad.Encrypt(GetBMPData(bmp));
+                byte[] encBmp = new byte[bmpData.Length];
+                Array.Copy(bmpData, 0, encBmp, 0, BMPHeaderSize);
 
-            Array.Copy(encData, 0, encBmp, BMPHeaderSize, encBmp.Length - BMPHeaderSize);
+                var (encData, key) = OneTimePad.Encrypt(GetBMPData(bmpData));
+                Array.Copy(encData, 0, encBmp, BMPHeaderSize, encBmp.Length - BMPHeaderSize);
 
-            return (encBmp, key);
+                var paddedKey = new byte[bmpData.Length];
+                Array.Copy(key, 0, paddedKey, BMPHeaderSize, key.Length);
+                
+                headerReceived = true;
+                return (encBmp, paddedKey);
+            }
+
+            return OneTimePad.Encrypt(bmpData);
         }
 
-        public byte[] Decrypt(byte[] encBmp, byte[] key)
+        public byte[] Decrypt(byte[] encBmpData, byte[] key)
         {
-            byte[] bmp = new byte[encBmp.Length];
-            Array.Copy(encBmp, 0, bmp, 0, BMPHeaderSize);
+            // Kljuc je padovan sa nulama na mestu bajtova headera, dekripcija radi i bez naredne if gane
+            if (!headerReceived)
+            {
+                if (encBmpData.Length < BMPHeaderSize)
+                {
+                    throw new ArgumentException("Bitmap header mora biti poslat odjedanput");
+                }
 
-            var data = OneTimePad.Decrypt(GetBMPData(encBmp), key);
+                byte[] bmp = new byte[encBmpData.Length];
+                Array.Copy(encBmpData, 0, bmp, 0, BMPHeaderSize);
 
-            Array.Copy(data, 0, bmp, BMPHeaderSize, bmp.Length - BMPHeaderSize);
+                var keyPadRm = new byte[encBmpData.Length - BMPHeaderSize];
+                Array.Copy(key, BMPHeaderSize, keyPadRm, 0, keyPadRm.Length);
 
-            return bmp;
+                var data = OneTimePad.Decrypt(GetBMPData(encBmpData), keyPadRm);
+                Array.Copy(data, 0, bmp, BMPHeaderSize, bmp.Length - BMPHeaderSize);
+
+                headerReceived = true;
+                return bmp;
+            }
+
+            return OneTimePad.Decrypt(encBmpData, key);
         }
         public byte[] GetBMPData(byte[] bmp)
         {

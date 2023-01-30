@@ -49,7 +49,7 @@ namespace Cryptography.ServiceHost.Utils
 
                 if (bi == buffer.Length)
                 {
-                    yield return EncryptBlock(buffer, BlockSizeUint32);
+                    yield return EncryptBlock(buffer, _BlockSizeUint32);
 
                     bi = 0;
                 }
@@ -70,7 +70,9 @@ namespace Cryptography.ServiceHost.Utils
 
                 if (bi == buffer.Length)
                 {
-                    yield return DecryptBlock(buffer, BlockSizeUint32);
+                    var decBlock = DecryptBlock(buffer, _BlockSizeUint32);
+
+                    yield return EncryptionHelper.RemovePadding(decBlock);
 
                     bi = 0;
                 }
@@ -126,7 +128,7 @@ namespace Cryptography.ServiceHost.Utils
                 y = b[0];
                 b[n - 1] += (((z >> 5 ^ y << 2) + (y >> 3 ^ z << 4)) ^ ((sum ^ y) + (k[(p & 3) ^ e] ^ z)));
                 z = b[n - 1];
-            } while (--rounds != 0);
+            } while (--rounds > 0);
 
             return b;
         }
@@ -151,7 +153,7 @@ namespace Cryptography.ServiceHost.Utils
                 z = b[n - 1];
                 y = b[0] -= (((z >> 5 ^ y << 2) + (y >> 3 ^ z << 4)) ^ ((sum ^ y) + (k[(p & 3) ^ e] ^ z)));
                 sum -= _Delta;
-            } while (--rounds != 0);
+            } while (--rounds > 0);
 
             return b;
         }

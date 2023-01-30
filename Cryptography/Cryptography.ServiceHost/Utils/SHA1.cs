@@ -72,21 +72,6 @@ namespace Cryptography.ServiceHost.Utils
             }
 
             messageLength += (ulong)i;
-
-            //for (int i = 0; i < data.Length / 64; i++)
-            //{
-            //    Array.Copy(data, i * 64, buffer, bi, 64 - bi);
-            //    messageLength += 64;
-
-            //    ProcessBlock();
-            //}
-
-            //bi = data.Length % 64;
-            //if (bi > 0)
-            //{
-            //    Array.Copy(data, data.Length - bi, buffer, 0, bi);
-            //    messageLength += (ulong)bi;
-            //}
         }
 
         private void ProcessBlock()

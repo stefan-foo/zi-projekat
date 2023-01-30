@@ -14,4 +14,8 @@
     <ProjectReference Include="..\Cryptography.ServiceHost\Cryptography.ServiceHost.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Res\Generated\" />
+  </ItemGroup>
+
 </Project>

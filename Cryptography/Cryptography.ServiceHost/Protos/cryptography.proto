@@ -15,25 +15,25 @@ service Cryptography {
   rpc FSCDecrypt(stream FSCDecryptRequest) returns (stream FSCDecryptReply);
   rpc OFBEncrypt(stream OFBEncryptRequest) returns (stream OFBEncryptReply);
   rpc OFBDecrypt(stream OFBDecryptRequest) returns (stream OFBDecryptReply);
-  rpc BMPEncrypt(BMPEncryptRequest) returns (BMPEncryptReply);
-  rpc BMPDecrypt(BMPDecryptRequest) returns (BMPDecryptReply);
+  rpc BMPEncrypt(stream BMPEncryptRequest) returns (stream BMPEncryptReply);
+  rpc BMPDecrypt(stream BMPDecryptRequest) returns (stream BMPDecryptReply);
 }
 
 message BMPDecryptReply {
-	bytes bitmap = 1;
+	bytes bmp = 1;
 }
 
 message BMPDecryptRequest {
-	bytes encrypted_bitmap = 1;
+	bytes encrypted_bmp = 1;
 	bytes key = 2;
 }
 
 message BMPEncryptRequest {
-	bytes bitmap = 1;
+	bytes bmp = 1;
 }
 
 message BMPEncryptReply {
-	bytes encrypted_bitmap = 1;
+	bytes encrypted_bmp = 1;
 	bytes key = 2;
 }
 

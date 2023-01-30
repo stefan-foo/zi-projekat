@@ -11,7 +11,7 @@ namespace Cryptography.ServiceHost.Utils
         private int bi = 0;
         public OFB(byte[] iV, byte[] key)
         {
-            if (iV.Length < XXTEA.BlockSize * 4)
+            if (iV.Length < XXTEAfbs.BlockSizeUint32 * 4)
             {
                 throw new ArgumentException($"Inicijalizacioni vektor mora biti duzine najmanje {XXTEAfbs.BlockSizeUint32} bajtova");
             }
